@@ -55,6 +55,36 @@ export default function ChatUI() {
     }
   };
 
+  const handleRemoveData = (index) => {
+    const removedFile = attachedFiles.data[index];
+    setAttachedFiles(prev => ({
+      ...prev,
+      data: prev.data.filter((_, i) => i !== index)
+    }));
+    
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      content: `🗑️ Removed data file: ${removedFile.name}`,
+      role: 'system',
+      timestamp: new Date()
+    }]);
+  };
+
+  const handleRemoveTemplate = () => {
+    const removedFile = attachedFiles.template;
+    setAttachedFiles(prev => ({
+      ...prev,
+      template: null
+    }));
+    
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      content: `🗑️ Removed template: ${removedFile.name}`,
+      role: 'system',
+      timestamp: new Date()
+    }]);
+  };
+
   return (
     <div className={theme}>
       <div className="min-h-screen bg-claude-bg-light dark:bg-claude-bg-dark text-claude-text-primary-light dark:text-claude-text-primary-dark transition-colors duration-200">
@@ -79,7 +109,14 @@ export default function ChatUI() {
         </main>
 
         {/* Fixed composer bar at bottom */}
-        <ComposerBar onSend={handleSendMessage} onFileSelect={handleFileSelect} />
+        <ComposerBar 
+          onSend={handleSendMessage} 
+          onFileSelect={handleFileSelect}
+          dataFiles={attachedFiles.data}
+          templateFile={attachedFiles.template}
+          onRemoveData={handleRemoveData}
+          onRemoveTemplate={handleRemoveTemplate}
+        />
       </div>
     </div>
   );
