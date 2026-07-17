@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import AttachmentMenu from './AttachmentMenu';
 import FileChips from './FileChips';
+import ConfigForm from './ConfigForm';
 
 export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateFile, onRemoveData, onRemoveTemplate }) {
   const [input, setInput] = useState('');
+  const [config, setConfig] = useState({ style: '', citationFormat: '' });
   const textareaRef = useRef(null);
 
-  // Disable send if files are not set
-  const canSend = input.trim() && dataFiles.length > 0 && templateFile;
+  // Disable send if files are not set or config not complete
+  const canSend = input.trim() && dataFiles.length > 0 && templateFile && config.style && config.citationFormat;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (canSend) {
-      onSend(input.trim());
+      onSend(input.trim(), config);
       setInput('');
+      setConfig({ style: '', citationFormat: '' }); // Reset config
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -47,6 +50,11 @@ export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateF
             onRemoveData={onRemoveData}
             onRemoveTemplate={onRemoveTemplate}
           />
+
+          {/* Config form - only show when files are attached */}
+          {(dataFiles.length > 0 || templateFile) && (
+            <ConfigForm config={config} onChange={setConfig} />
+          )}
 
           {/* Input container */}
           <div className="relative flex items-end gap-2 bg-white dark:bg-claude-surface-dark rounded-3xl shadow-lg border border-claude-border-light dark:border-claude-border-dark p-2 focus-within:ring-2 focus-within:ring-claude-accent focus-within:ring-opacity-50 transition-all">
@@ -90,6 +98,8 @@ export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateF
               <span>⚠️ Upload data file to continue</span>
             ) : !templateFile ? (
               <span>⚠️ Upload template file to continue</span>
+            ) : !config.style || !config.citationFormat ? (
+              <span>⚠️ Select journal style and citation format</span>
             ) : (
               <>
                 <span>Press Enter to send</span>

@@ -12,15 +12,35 @@ export default function ChatUI() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const handleSendMessage = (message) => {
+  const handleSendMessage = (message, config) => {
     // Message sending logic will go here
-    console.log('Message sent:', message);
-    setMessages(prev => [...prev, { 
+    console.log('Message sent:', message, 'Config:', config);
+    
+    const newMessage = { 
       id: Date.now(), 
       content: message, 
       role: 'user',
-      timestamp: new Date()
-    }]);
+      timestamp: new Date(),
+      files: {
+        data: [...attachedFiles.data],
+        template: attachedFiles.template
+      },
+      config: config
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    
+    // Simulate assistant response with job
+    setTimeout(() => {
+      const jobId = `job-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        content: 'I\'ll start generating your research paper now...',
+        role: 'assistant',
+        timestamp: new Date(),
+        jobId: jobId
+      }]);
+    }, 500);
   };
 
   const handleFileSelect = ({ type, files }) => {
