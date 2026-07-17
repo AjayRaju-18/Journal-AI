@@ -79,8 +79,32 @@ export default function Message({ message }) {
           )}
 
           {/* Assistant message: Show status card below message */}
-          {isAssistant && message.jobId && (
+          {isAssistant && message.jobId && !message.error && (
             <StatusCard jobId={message.jobId} />
+          )}
+          
+          {/* Assistant message: Show error state */}
+          {isAssistant && message.error && (
+            <div className="mt-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-300 text-sm">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Please check your configuration and try again.</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Assistant message: Show loading state */}
+          {isAssistant && message.isLoading && (
+            <div className="mt-3 p-4 rounded-2xl bg-claude-surface-light dark:bg-claude-surface-dark border border-claude-border-light dark:border-claude-border-dark">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-claude-text-secondary-light dark:text-claude-text-secondary-dark">
+                  Uploading files and initializing...
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </div>

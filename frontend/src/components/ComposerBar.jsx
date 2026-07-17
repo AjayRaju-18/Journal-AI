@@ -3,13 +3,13 @@ import AttachmentMenu from './AttachmentMenu';
 import FileChips from './FileChips';
 import ConfigForm from './ConfigForm';
 
-export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateFile, onRemoveData, onRemoveTemplate }) {
+export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateFile, onRemoveData, onRemoveTemplate, isProcessing }) {
   const [input, setInput] = useState('');
   const [config, setConfig] = useState({ style: '', citationFormat: '' });
   const textareaRef = useRef(null);
 
   // Disable send if files are not set or config not complete
-  const canSend = input.trim() && dataFiles.length > 0 && templateFile && config.style && config.citationFormat;
+  const canSend = !isProcessing && input.trim() && dataFiles.length > 0 && templateFile && config.style && config.citationFormat;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -69,7 +69,8 @@ export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateF
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Shift+Enter for new line)"
               rows={1}
-              className="flex-1 resize-none bg-transparent border-none outline-none text-sm text-claude-text-primary-light dark:text-claude-text-primary-dark placeholder-claude-text-secondary-light dark:placeholder-claude-text-secondary-dark py-2 px-2 max-h-[200px] scrollbar-thin"
+              disabled={isProcessing}
+              className="flex-1 resize-none bg-transparent border-none outline-none text-sm text-claude-text-primary-light dark:text-claude-text-primary-dark placeholder-claude-text-secondary-light dark:placeholder-claude-text-secondary-dark py-2 px-2 max-h-[200px] scrollbar-thin disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ minHeight: '36px' }}
             />
 
@@ -82,7 +83,7 @@ export default function ComposerBar({ onSend, onFileSelect, dataFiles, templateF
                   ? 'bg-claude-accent hover:bg-indigo-600 text-white shadow-md hover:shadow-lg'
                   : 'bg-claude-surface-light dark:bg-claude-bg-dark text-claude-text-secondary-light dark:text-claude-text-secondary-dark cursor-not-allowed'
               }`}
-              title={canSend ? 'Send message' : 'Upload data and template files first'}
+              title={canSend ? 'Send message' : isProcessing ? 'Processing...' : 'Upload data and template files first'}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

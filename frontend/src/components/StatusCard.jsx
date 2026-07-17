@@ -41,8 +41,8 @@ export default function StatusCard({ jobId }) {
     // Initial fetch
     pollStatus();
 
-    // Poll every 1.5 seconds
-    intervalId = setInterval(pollStatus, 1500);
+    // Poll every 2 seconds
+    intervalId = setInterval(pollStatus, 2000);
 
     return () => {
       isMounted = false;

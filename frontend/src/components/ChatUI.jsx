@@ -2,21 +2,25 @@ import { useState } from 'react';
 import MessageStream from './MessageStream';
 import ComposerBar from './ComposerBar';
 import ThemeToggle from './ThemeToggle';
+import { uploadFiles, generatePaper } from '../api/client';
 
 export default function ChatUI() {
   const [theme, setTheme] = useState('light');
   const [messages, setMessages] = useState([]);
   const [attachedFiles, setAttachedFiles] = useState({ data: [], template: null });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const handleSendMessage = (message, config) => {
-    // Message sending logic will go here
-    console.log('Message sent:', message, 'Config:', config);
+  const handleSendMessage = async (message, config) => {
+    if (isProcessing) return;
     
-    const newMessage = { 
+    setIsProcessing(true);
+    
+    // Add user message to chat
+    const userMessage = { 
       id: Date.now(), 
       content: message, 
       role: 'user',
@@ -28,19 +32,73 @@ export default function ChatUI() {
       config: config
     };
     
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => [...prev, userMessage]);
     
-    // Simulate assistant response with job
-    setTimeout(() => {
-      const jobId = `job-${Date.now()}`;
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        content: 'I\'ll start generating your research paper now...',
-        role: 'assistant',
-        timestamp: new Date(),
-        jobId: jobId
-      }]);
-    }, 500);
+    // Add initial assistant message
+    const assistantMessageId = Date.now() + 1;
+    const assistantMessage = {
+      id: assistantMessageId,
+      content: 'I\'ll start generating your research paper now...',
+      role: 'assistant',
+      timestamp: new Date(),
+      jobId: null,
+      isLoading: true
+    };
+    
+    setMessages(prev => [...prev, assistantMessage]);
+    
+    try {
+      // Step 1: Upload files
+      console.log('Uploading files...');
+      const uploadResponse = await uploadFiles(
+        attachedFiles.data[0], // Primary data file
+        attachedFiles.template
+      );
+      
+      console.log('Upload response:', uploadResponse);
+      const jobId = uploadResponse.job_id;
+      
+      // Step 2: Start paper generation
+      console.log('Starting generation with job_id:', jobId);
+      const generateResponse = await generatePaper(jobId, {
+        style: config.style,
+        citation_style: config.citationFormat,
+      });
+      
+      console.log('Generate response:', generateResponse);
+      
+      // Update assistant message with jobId to start polling
+      setMessages(prev => prev.map(msg => 
+        msg.id === assistantMessageId
+          ? { 
+              ...msg, 
+              jobId: jobId,
+              isLoading: false,
+              content: 'Generating your research paper...'
+            }
+          : msg
+      ));
+      
+      // Clear attached files and reset form
+      setAttachedFiles({ data: [], template: null });
+      
+    } catch (error) {
+      console.error('Error during paper generation:', error);
+      
+      // Update assistant message with error
+      setMessages(prev => prev.map(msg => 
+        msg.id === assistantMessageId
+          ? { 
+              ...msg, 
+              isLoading: false,
+              content: `❌ Error: ${error.response?.data?.detail || error.message || 'Failed to generate paper. Please try again.'}`,
+              error: true
+            }
+          : msg
+      ));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFileSelect = ({ type, files }) => {
@@ -136,6 +194,7 @@ export default function ChatUI() {
           templateFile={attachedFiles.template}
           onRemoveData={handleRemoveData}
           onRemoveTemplate={handleRemoveTemplate}
+          isProcessing={isProcessing}
         />
       </div>
     </div>
