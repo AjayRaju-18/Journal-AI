@@ -1,157 +1,170 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+
+/** True while window width ≤ 640 px (Tailwind's `sm` breakpoint). */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return isMobile;
+}
 
 export default function AttachmentMenu({ onFileSelect }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
   const dataInputRef = useRef(null);
   const templateInputRef = useRef(null);
+  const isMobile = useIsMobile();
 
-  // Close menu when clicking outside
+  // Close on outside click (desktop popover only)
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    if (!isOpen || isMobile) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
         setIsOpen(false);
       }
     };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen, isMobile]);
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+  // Lock body scroll while sheet is open on mobile
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
     }
-  }, [isOpen]);
+  }, [isMobile, isOpen]);
 
-  const handleDataClick = () => {
-    dataInputRef.current?.click();
-    setIsOpen(false);
-  };
+  const close = useCallback(() => setIsOpen(false), []);
 
-  const handleTemplateClick = () => {
-    templateInputRef.current?.click();
-    setIsOpen(false);
-  };
+  const handleDataClick = () => { dataInputRef.current?.click(); close(); };
+  const handleTemplateClick = () => { templateInputRef.current?.click(); close(); };
 
   const handleDataChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      onFileSelect({ type: 'data', files });
-    }
-    e.target.value = ''; // Reset input
+    if (files.length > 0) onFileSelect({ type: 'data', files });
+    e.target.value = '';
   };
-
   const handleTemplateChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      onFileSelect({ type: 'template', files });
-    }
-    e.target.value = ''; // Reset input
+    if (files.length > 0) onFileSelect({ type: 'template', files });
+    e.target.value = '';
   };
+
+  // ── Shared menu items ────────────────────────────────────────────────────
+  const MenuItems = ({ onItemClick }) => (
+    <>
+      <button
+        type="button"
+        onClick={() => { handleDataClick(); onItemClick?.(); }}
+        className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-claude-surface-light dark:hover:bg-claude-bg-dark transition-colors text-left group"
+      >
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm">
+          <svg className="w-4.5 h-4.5 text-white w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-claude-text-primary-light dark:text-claude-text-primary-dark">Data file</div>
+          <div className="text-xs text-claude-text-secondary-light dark:text-claude-text-secondary-dark mt-0.5">CSV, Excel, or text · max 50 MB</div>
+        </div>
+        <svg className="w-4 h-4 text-claude-text-secondary-light dark:text-claude-text-secondary-dark flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <div className="h-px mx-4 bg-claude-border-light dark:bg-claude-border-dark" />
+
+      <button
+        type="button"
+        onClick={() => { handleTemplateClick(); onItemClick?.(); }}
+        className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-claude-surface-light dark:hover:bg-claude-bg-dark transition-colors text-left group"
+      >
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-sm">
+          <svg className="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-claude-text-primary-light dark:text-claude-text-primary-dark">Template <span className="text-xs font-normal text-claude-text-secondary-light dark:text-claude-text-secondary-dark">(optional)</span></div>
+          <div className="text-xs text-claude-text-secondary-light dark:text-claude-text-secondary-dark mt-0.5">DOCX · max 10 MB</div>
+        </div>
+        <svg className="w-4 h-4 text-claude-text-secondary-light dark:text-claude-text-secondary-dark flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </>
+  );
 
   return (
     <div className="relative" ref={menuRef}>
-      {/* Plus button */}
+      {/* ── Trigger button ───────────────────────────────────────── */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
+        id="attachment-menu-btn"
+        onClick={() => setIsOpen((o) => !o)}
+        aria-label="Add files"
+        className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 ${
           isOpen
-            ? 'bg-claude-accent text-white shadow-md'
-            : 'hover:bg-claude-surface-light dark:hover:bg-claude-bg-dark text-claude-text-secondary-light dark:text-claude-text-secondary-dark'
+            ? 'bg-claude-accent text-white'
+            : 'text-claude-text-secondary-light dark:text-claude-text-secondary-dark hover:bg-claude-surface-light dark:hover:bg-claude-bg-dark'
         }`}
-        title="Add files"
       >
-        <svg 
+        <svg
           className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'rotate-45' : ''}`}
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       </button>
 
-      {/* Popover menu */}
-      {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-claude-surface-dark rounded-2xl shadow-2xl border border-claude-border-light dark:border-claude-border-dark overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
-          {/* Data option */}
-          <button
-            type="button"
-            onClick={handleDataClick}
-            className="w-full px-4 py-3 flex items-start gap-3 hover:bg-claude-surface-light dark:hover:bg-claude-bg-dark transition-colors text-left"
-          >
-            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm text-claude-text-primary-light dark:text-claude-text-primary-dark">
-                Add Data
-              </div>
-              <div className="text-xs text-claude-text-secondary-light dark:text-claude-text-secondary-dark mt-0.5">
-                Upload CSV, Excel, or text files
-              </div>
-            </div>
-            <div className="flex-shrink-0 text-claude-text-secondary-light dark:text-claude-text-secondary-dark">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </button>
-
-          {/* Divider */}
-          <div className="h-px bg-claude-border-light dark:bg-claude-border-dark" />
-
-          {/* Template option */}
-          <button
-            type="button"
-            onClick={handleTemplateClick}
-            className="w-full px-4 py-3 flex items-start gap-3 hover:bg-claude-surface-light dark:hover:bg-claude-bg-dark transition-colors text-left"
-          >
-            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm text-claude-text-primary-light dark:text-claude-text-primary-dark">
-                Add Template
-              </div>
-              <div className="text-xs text-claude-text-secondary-light dark:text-claude-text-secondary-dark mt-0.5">
-                Upload DOCX template (optional)
-              </div>
-            </div>
-            <div className="flex-shrink-0 text-claude-text-secondary-light dark:text-claude-text-secondary-dark">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </button>
-
-          {/* Footer hint */}
-          <div className="px-4 py-2 bg-claude-surface-light dark:bg-claude-bg-dark border-t border-claude-border-light dark:border-claude-border-dark">
-            <p className="text-xs text-claude-text-secondary-light dark:text-claude-text-secondary-dark">
-              Max file size: 50MB for data, 10MB for templates
-            </p>
-          </div>
+      {/* ── Desktop popover ───────────────────────────────────────── */}
+      {!isMobile && isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-claude-surface-dark rounded-2xl border border-claude-border-light dark:border-claude-border-dark overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] animate-panel-reveal">
+          <MenuItems />
         </div>
       )}
 
+      {/* ── Mobile bottom sheet (portalled to body) ───────────────── */}
+      {isMobile && isOpen && createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/30 animate-backdrop-in"
+            onClick={close}
+            aria-hidden="true"
+          />
+          {/* Sheet */}
+          <div className="fixed inset-x-0 bottom-0 z-50 animate-sheet-up">
+            <div className="bg-white dark:bg-claude-surface-dark rounded-t-3xl border-t border-claude-border-light dark:border-claude-border-dark overflow-hidden">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-claude-border-light dark:bg-claude-border-dark" />
+              </div>
+              {/* Title */}
+              <div className="px-5 pb-3 pt-2">
+                <p className="text-sm font-semibold text-claude-text-primary-light dark:text-claude-text-primary-dark">
+                  Add files
+                </p>
+              </div>
+              <div className="h-px mx-5 bg-claude-border-light dark:bg-claude-border-dark mb-1" />
+              <MenuItems onItemClick={close} />
+              {/* Bottom safe area */}
+              <div className="pb-safe" />
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
       {/* Hidden file inputs */}
-      <input
-        ref={dataInputRef}
-        type="file"
-        accept=".csv,.xlsx,.xls,.txt"
-        multiple
-        onChange={handleDataChange}
-        className="hidden"
-      />
-      <input
-        ref={templateInputRef}
-        type="file"
-        accept=".docx"
-        onChange={handleTemplateChange}
-        className="hidden"
-      />
+      <input ref={dataInputRef} type="file" accept=".csv,.xlsx,.xls,.txt" multiple onChange={handleDataChange} className="hidden" />
+      <input ref={templateInputRef} type="file" accept=".docx" onChange={handleTemplateChange} className="hidden" />
     </div>
   );
 }

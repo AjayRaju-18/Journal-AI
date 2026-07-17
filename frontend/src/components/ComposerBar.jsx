@@ -16,13 +16,15 @@ export default function ComposerBar({
   const [config, setConfig] = useState({ style: '', citationFormat: '' });
   const textareaRef = useRef(null);
 
+  const hasFiles   = dataFiles.length > 0 || templateFile;
+  const hasConfig  = config.style && config.citationFormat;
+
   // Template is optional — only data file + config are required
   const canSend =
     !isProcessing &&
     input.trim().length > 0 &&
     dataFiles.length > 0 &&
-    config.style &&
-    config.citationFormat;
+    hasConfig;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -40,110 +42,120 @@ export default function ComposerBar({
     }
   };
 
-  // Auto-resize textarea up to 200 px
+  // Auto-resize textarea — max 160 px on mobile, 200 px on desktop
   useEffect(() => {
-    if (!textareaRef.current) return;
-    textareaRef.current.style.height = 'auto';
-    textareaRef.current.style.height =
-      `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const max = window.innerWidth <= 640 ? 160 : 200;
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
   }, [input]);
 
-  // ── helper text shown beneath the input ─────────────────────────────────
+  // ── Hint text ─────────────────────────────────────────────────────────────
   let hint = null;
-  if (isProcessing) {
-    hint = null; // no hint while generating
-  } else if (!dataFiles.length) {
-    hint = <span>📂 Upload a data file to get started</span>;
-  } else if (!config.style || !config.citationFormat) {
-    hint = <span>⚙️ Select journal style and citation format</span>;
-  } else {
-    hint = (
-      <>
-        <span>Press Enter to send</span>
-        <span className="text-claude-border-light dark:text-claude-border-dark">•</span>
-        <span>Shift+Enter for new line</span>
-      </>
-    );
+  if (!isProcessing) {
+    if (!dataFiles.length) {
+      hint = '📂 Upload a data file to get started';
+    } else if (!hasConfig) {
+      hint = '⚙️ Pick a journal style and citation format';
+    } else if (canSend) {
+      hint = 'Enter to send · Shift+Enter for new line';
+    }
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-claude-bg-light dark:from-claude-bg-dark via-claude-bg-light dark:via-claude-bg-dark to-transparent pt-8 pb-4">
-      <div className="max-w-3xl mx-auto px-4">
-        <form onSubmit={handleSubmit} className="relative">
+    <div className="fixed bottom-0 left-0 right-0 z-30">
+      {/* Fade-up gradient so messages bleed naturally into the composer */}
+      <div className="pointer-events-none absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-claude-bg-light dark:from-claude-bg-dark to-transparent" />
 
-          {/* File chips */}
-          <FileChips
-            dataFiles={dataFiles}
-            templateFile={templateFile}
-            onRemoveData={onRemoveData}
-            onRemoveTemplate={onRemoveTemplate}
-          />
+      <div className="bg-claude-bg-light/95 dark:bg-claude-bg-dark/95 backdrop-blur-sm border-t border-claude-border-light dark:border-claude-border-dark pb-safe">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 pt-3 pb-2">
+          <form onSubmit={handleSubmit}>
 
-          {/* Config — only show when at least one file is attached */}
-          {(dataFiles.length > 0 || templateFile) && (
-            <ConfigForm config={config} onChange={setConfig} />
-          )}
+            {/* ── File chips (animated in) ────────────────────────── */}
+            {hasFiles && (
+              <FileChips
+                dataFiles={dataFiles}
+                templateFile={templateFile}
+                onRemoveData={onRemoveData}
+                onRemoveTemplate={onRemoveTemplate}
+              />
+            )}
 
-          {/* Input row */}
-          <div className="relative flex items-end gap-2 bg-white dark:bg-claude-surface-dark rounded-3xl shadow-lg border border-claude-border-light dark:border-claude-border-dark p-2 focus-within:ring-2 focus-within:ring-claude-accent focus-within:ring-opacity-50 transition-all">
+            {/* ── Config pill-pickers (animated in when files present) ─ */}
+            {hasFiles && (
+              <ConfigForm config={config} onChange={setConfig} />
+            )}
 
-            {/* "+" attachment menu */}
-            <AttachmentMenu onFileSelect={onFileSelect} />
-
-            {/* Textarea */}
-            <textarea
-              ref={textareaRef}
-              id="composer-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
+            {/* ── Input row ─────────────────────────────────────────── */}
+            <div
+              className={`relative flex items-end gap-1.5 bg-white dark:bg-claude-surface-dark rounded-2xl border transition-all duration-200 p-1.5 ${
                 isProcessing
-                  ? 'Generating paper…'
-                  : 'Describe your paper or ask a question…'
-              }
-              rows={1}
-              disabled={isProcessing}
-              className="flex-1 resize-none bg-transparent border-none outline-none text-sm text-claude-text-primary-light dark:text-claude-text-primary-dark placeholder-claude-text-secondary-light dark:placeholder-claude-text-secondary-dark py-2 px-2 max-h-[200px] scrollbar-thin disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ minHeight: '36px' }}
-            />
-
-            {/* Send button */}
-            <button
-              type="submit"
-              id="composer-send-btn"
-              disabled={!canSend}
-              title={
-                isProcessing
-                  ? 'Generating…'
-                  : canSend
-                  ? 'Send (Enter)'
-                  : 'Upload data & select config first'
-              }
-              className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
-                canSend
-                  ? 'bg-claude-accent hover:bg-indigo-600 text-white shadow-md hover:shadow-lg'
-                  : 'bg-claude-surface-light dark:bg-claude-bg-dark text-claude-text-secondary-light dark:text-claude-text-secondary-dark cursor-not-allowed'
+                  ? 'border-claude-border-light dark:border-claude-border-dark opacity-80'
+                  : 'border-claude-border-light dark:border-claude-border-dark focus-within:border-indigo-400 dark:focus-within:border-indigo-500'
               }`}
             >
-              {isProcessing ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              )}
-            </button>
-          </div>
+              {/* Attachment menu */}
+              <AttachmentMenu onFileSelect={onFileSelect} />
 
-          {/* Hint row */}
-          {hint && (
-            <div className="mt-2 px-4 flex items-center justify-center gap-4 text-xs text-claude-text-secondary-light dark:text-claude-text-secondary-dark">
-              {hint}
+              {/* Textarea */}
+              <textarea
+                ref={textareaRef}
+                id="composer-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  isProcessing
+                    ? 'Generating paper…'
+                    : 'Describe your paper or ask a question…'
+                }
+                rows={1}
+                disabled={isProcessing}
+                className="flex-1 resize-none bg-transparent border-none outline-none text-sm text-claude-text-primary-light dark:text-claude-text-primary-dark placeholder-claude-text-secondary-light dark:placeholder-claude-text-secondary-dark py-2 px-1 scrollbar-thin disabled:opacity-50 disabled:cursor-not-allowed leading-relaxed"
+                style={{ minHeight: '36px' }}
+              />
+
+              {/* Send button */}
+              <button
+                type="submit"
+                id="composer-send-btn"
+                disabled={!canSend}
+                title={
+                  isProcessing ? 'Generating…'
+                  : canSend ? 'Send (Enter)'
+                  : 'Upload data & pick config first'
+                }
+                className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                  canSend
+                    ? 'bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white'
+                    : 'bg-claude-surface-light dark:bg-claude-bg-dark text-claude-text-secondary-light dark:text-claude-text-secondary-dark cursor-not-allowed'
+                }`}
+              >
+                {isProcessing ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
+              </button>
             </div>
-          )}
-        </form>
+
+            {/* ── Hint row ───────────────────────────────────────────── */}
+            <div
+              className={`overflow-hidden transition-all duration-200 ${
+                hint ? 'max-h-8 mt-1.5 opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <p className="text-center text-[11px] text-claude-text-secondary-light dark:text-claude-text-secondary-dark">
+                {hint}
+              </p>
+            </div>
+
+          </form>
+        </div>
       </div>
     </div>
   );

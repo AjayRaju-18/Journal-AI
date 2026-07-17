@@ -2,7 +2,7 @@ import FileChips from './FileChips';
 import ConfigPills from './ConfigPills';
 import StatusCard from './StatusCard';
 
-export default function Message({ message }) {
+export default function Message({ message, onRetryFor }) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const isSystem = message.role === 'system';
@@ -78,9 +78,11 @@ export default function Message({ message }) {
             </div>
           )}
 
-          {/* Assistant message: Show status card below message */}
           {isAssistant && message.jobId && !message.error && (
-            <StatusCard jobId={message.jobId} />
+            <StatusCard
+              jobId={message.jobId}
+              onRetry={message.retryConfig && onRetryFor ? onRetryFor(message.retryConfig) : undefined}
+            />
           )}
           
           {/* Assistant message: Show error state */}

@@ -60,7 +60,13 @@ export default function ChatUI() {
       setMessages(prev =>
         prev.map(msg =>
           msg.id === assistantId
-            ? { ...msg, jobId, isLoading: false, content: 'Generating your research paper…' }
+            ? {
+                ...msg,
+                jobId,
+                isLoading: false,
+                content: 'Generating your research paper…',
+                retryConfig: { jobId, style: config.style, citationFormat: config.citationFormat },
+              }
             : msg
         )
       );
@@ -82,6 +88,12 @@ export default function ChatUI() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // ── Retry: re-call /generate with the same job's already-uploaded files ──
+  const handleRetryFor = (retryConfig) => async () => {
+    const { jobId, style, citationFormat } = retryConfig;
+    await generatePaper(jobId, { style, citation_style: citationFormat });
   };
 
   // ── File attachment handlers ─────────────────────────────────────────────
@@ -148,9 +160,9 @@ export default function ChatUI() {
         </header>
 
         {/* Message stream */}
-        <main className="pt-14 pb-32">
+        <main className="pt-14 pb-40">
           <div className="max-w-3xl mx-auto px-4">
-            <MessageStream messages={messages} />
+            <MessageStream messages={messages} onRetryFor={handleRetryFor} />
           </div>
         </main>
 
