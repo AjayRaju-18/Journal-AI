@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Backend service - FastAPI + LangGraph
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: paper-pipeline-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # API Keys (provide via .env file)
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      
+      # Database
+      - DB_URL=sqlite:///./data/paper_pipeline.db
+      
+      # Upload directory
+      - UPLOAD_DIR=/app/uploads
+      
+      # Python settings
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Shared volume for uploads and outputs
+      - uploads:/app/uploads
+      
+      # Database persistence
+      - db-data:/app/data
+      
+      # Development: mount code for hot reload (comment out for production)
+      # - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - paper-pipeline-network
+
+  # Frontend service - React + Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: paper-pipeline-frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=/api
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - paper-pipeline-network
+
+volumes:
+  # Shared volume for uploaded files and generated papers
+  uploads:
+    driver: local
+  
+  # Database persistence volume
+  db-data:
+    driver: local
+
+networks:
+  # Internal network for service communication
+  paper-pipeline-network:
+    driver: bridge
