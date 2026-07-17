@@ -40,20 +40,23 @@ apiClient.interceptors.response.use(
  * @param {File|null} templateFile - Optional template file (DOCX)
  * @returns {Promise<{job_id: string, status: string, files: object}>}
  */
-export const uploadFiles = async (dataFile, templateFile = null) => {
+export const uploadFiles = async (dataFile, templateFile = null, imageFiles = []) => {
   const formData = new FormData();
   formData.append('data_file', dataFile);
-  
+
   if (templateFile) {
     formData.append('template_file', templateFile);
   }
-  
-  const response = await apiClient.post('/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+
+  // Append image files individually so FastAPI receives them as a list
+  (imageFiles || []).forEach((img, idx) => {
+    formData.append('image_files', img);
   });
-  
+
+  const response = await apiClient.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
   return response.data;
 };
 

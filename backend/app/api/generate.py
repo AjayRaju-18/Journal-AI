@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 import asyncio
 from app.core.config import settings
@@ -8,6 +8,7 @@ from app.models.schemas import JobStatus
 from app.graph.graph import run_paper_generation
 from app.services.data_parser import parse_and_summarize
 from app.services.template_parser import parse_template_structure
+from app.services.image_analyser import find_image_files
 
 
 router = APIRouter()
@@ -99,13 +100,19 @@ async def generate_paper(
             "final_doc": None
         }
         
+        # Find image files in job dir (saved by upload endpoint)
+        image_paths = find_image_files(job_dir)
+        if image_paths:
+            print(f"[Generate] Found {len(image_paths)} image file(s) for vision analysis")
+
         # Start generation in background
         background_tasks.add_task(
             _run_generation,
             job_id,
             str(data_file_path),
             str(template_file_path) if template_file_path else None,
-            config
+            config,
+            image_paths,
         )
         
         return {
@@ -176,16 +183,18 @@ async def _run_generation(
     job_id: str,
     data_file_path: str,
     template_file_path: Optional[str],
-    config: Dict[str, Any]
+    config: Dict[str, Any],
+    image_paths: Optional[List[str]] = None,
 ):
     """
     Run paper generation workflow in background.
-    
+
     Args:
-        job_id: Job identifier
-        data_file_path: Path to data file
+        job_id:             Job identifier
+        data_file_path:     Path to data file
         template_file_path: Optional path to template file
-        config: Generation configuration
+        config:             Generation configuration
+        image_paths:        Optional list of uploaded image paths
     """
     try:
         # Update status
@@ -215,6 +224,7 @@ async def _run_generation(
             raw_data=raw_data,
             template_structure=template_structure,
             config=config,
+            image_paths=image_paths or [],
             status_callback=lambda state: _update_job_status(job_id, state)
         )
         

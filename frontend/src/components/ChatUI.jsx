@@ -7,7 +7,7 @@ import { uploadFiles, generatePaper } from '../api/client';
 export default function ChatUI() {
   const [theme, setTheme] = useState('light');
   const [messages, setMessages] = useState([]);
-  const [attachedFiles, setAttachedFiles] = useState({ data: [], template: null });
+  const [attachedFiles, setAttachedFiles] = useState({ data: [], template: null, images: [] });
   const [isProcessing, setIsProcessing] = useState(false);
 
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -46,7 +46,8 @@ export default function ChatUI() {
       // ── Step 1: upload files ─────────────────────────────────────────
       const uploadResp = await uploadFiles(
         attachedFiles.data[0],   // required data file
-        attachedFiles.template   // optional template
+        attachedFiles.template,  // optional template
+        attachedFiles.images,    // optional images
       );
       const jobId = uploadResp.job_id;
 
@@ -72,7 +73,7 @@ export default function ChatUI() {
       );
 
       // Clear attached files
-      setAttachedFiles({ data: [], template: null });
+      setAttachedFiles({ data: [], template: null, images: [] });
 
     } catch (err) {
       const detail =
@@ -102,23 +103,19 @@ export default function ChatUI() {
       setAttachedFiles(prev => ({ ...prev, data: [...prev.data, ...files] }));
       setMessages(prev => [
         ...prev,
-        {
-          id: Date.now(),
-          role: 'system',
-          content: `📊 Data file attached: ${files.map(f => f.name).join(', ')}`,
-          timestamp: new Date(),
-        },
+        { id: Date.now(), role: 'system', content: `📊 Data file attached: ${files.map(f => f.name).join(', ')}`, timestamp: new Date() },
       ]);
     } else if (type === 'template') {
       setAttachedFiles(prev => ({ ...prev, template: files[0] }));
       setMessages(prev => [
         ...prev,
-        {
-          id: Date.now(),
-          role: 'system',
-          content: `📄 Template attached: ${files[0].name}`,
-          timestamp: new Date(),
-        },
+        { id: Date.now(), role: 'system', content: `📄 Template attached: ${files[0].name}`, timestamp: new Date() },
+      ]);
+    } else if (type === 'image') {
+      setAttachedFiles(prev => ({ ...prev, images: [...prev.images, ...files] }));
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now(), role: 'system', content: `🖼️ Graph/figure attached: ${files.map(f => f.name).join(', ')}`, timestamp: new Date() },
       ]);
     }
   };
@@ -138,6 +135,15 @@ export default function ChatUI() {
     setMessages(prev => [
       ...prev,
       { id: Date.now(), role: 'system', content: `🗑️ Removed template: ${removed.name}`, timestamp: new Date() },
+    ]);
+  };
+
+  const handleRemoveImage = (index) => {
+    const removed = attachedFiles.images[index];
+    setAttachedFiles(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+    setMessages(prev => [
+      ...prev,
+      { id: Date.now(), role: 'system', content: `🗑️ Removed image: ${removed.name}`, timestamp: new Date() },
     ]);
   };
 
@@ -172,8 +178,10 @@ export default function ChatUI() {
           onFileSelect={handleFileSelect}
           dataFiles={attachedFiles.data}
           templateFile={attachedFiles.template}
+          imageFiles={attachedFiles.images}
           onRemoveData={handleRemoveData}
           onRemoveTemplate={handleRemoveTemplate}
+          onRemoveImage={handleRemoveImage}
           isProcessing={isProcessing}
         />
       </div>

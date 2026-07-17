@@ -14,6 +14,10 @@ class PaperGenerationState(TypedDict):
     raw_data: Optional[Dict[str, Any]]
     template_structure: Optional[Dict[str, Any]]
     config: Dict[str, Any]
+
+    # Image inputs (optional)
+    image_paths: Optional[List[str]]          # absolute paths to uploaded images
+    image_descriptions: Optional[List[Dict[str, Any]]]  # output of vision node
     
     # Processing stages
     structured_data: Optional[Dict[str, Any]]
@@ -74,6 +78,8 @@ def create_initial_state(
         raw_data=raw_data,
         template_structure=template_structure,
         config=config or {},
+        image_paths=None,
+        image_descriptions=None,
         structured_data=None,
         sections=None,
         citations=None,

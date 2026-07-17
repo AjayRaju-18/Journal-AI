@@ -8,15 +8,17 @@ export default function ComposerBar({
   onFileSelect,
   dataFiles,
   templateFile,
+  imageFiles = [],
   onRemoveData,
   onRemoveTemplate,
+  onRemoveImage,
   isProcessing,
 }) {
   const [input, setInput] = useState('');
   const [config, setConfig] = useState({ style: '', citationFormat: '' });
   const textareaRef = useRef(null);
 
-  const hasFiles   = dataFiles.length > 0 || templateFile;
+  const hasFiles   = dataFiles.length > 0 || templateFile || imageFiles.length > 0;
   const hasConfig  = config.style && config.citationFormat;
 
   // Template is optional — only data file + config are required
@@ -77,8 +79,10 @@ export default function ComposerBar({
               <FileChips
                 dataFiles={dataFiles}
                 templateFile={templateFile}
+                imageFiles={imageFiles}
                 onRemoveData={onRemoveData}
                 onRemoveTemplate={onRemoveTemplate}
+                onRemoveImage={onRemoveImage}
               />
             )}
 

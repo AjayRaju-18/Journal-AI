@@ -2,6 +2,7 @@ from typing import Dict, Any, Callable, Optional
 from langgraph.graph import StateGraph, END
 from app.graph.state import PaperGenerationState, create_initial_state
 from app.graph.checkpointer import get_global_checkpointer
+from app.graph.nodes.vision import vision_node
 from app.graph.nodes.structuring import structuring_node
 from app.graph.nodes.drafting import drafting_node
 from app.graph.nodes.citation import citation_node
@@ -11,26 +12,32 @@ from app.graph.nodes.formatting import formatting_node
 def create_paper_generation_graph() -> StateGraph:
     """
     Create the LangGraph workflow for paper generation.
-    
+
+    Pipeline: vision → structuring → drafting → citation → formatting
+
+    The vision node is always present in the graph; it is a fast no-op
+    when no images have been uploaded.
+
     Returns:
         Configured StateGraph
     """
-    # Create graph
     workflow = StateGraph(PaperGenerationState)
-    
+
     # Add nodes
+    workflow.add_node("vision", vision_node)
     workflow.add_node("structuring", structuring_node)
     workflow.add_node("drafting", drafting_node)
     workflow.add_node("citation", citation_node)
     workflow.add_node("formatting", formatting_node)
-    
+
     # Define edges
-    workflow.set_entry_point("structuring")
+    workflow.set_entry_point("vision")
+    workflow.add_edge("vision", "structuring")
     workflow.add_edge("structuring", "drafting")
     workflow.add_edge("drafting", "citation")
     workflow.add_edge("citation", "formatting")
     workflow.add_edge("formatting", END)
-    
+
     return workflow
 
 
@@ -39,18 +46,20 @@ async def run_paper_generation(
     raw_data: Dict[str, Any],
     template_structure: Optional[Dict[str, Any]] = None,
     config: Optional[Dict[str, Any]] = None,
+    image_paths: Optional[list] = None,
     status_callback: Optional[Callable] = None
 ) -> PaperGenerationState:
     """
     Run the paper generation workflow.
-    
+
     Args:
-        job_id: Unique job identifier
-        raw_data: Parsed data from upload
+        job_id:            Unique job identifier
+        raw_data:          Parsed data from upload
         template_structure: Optional template structure
-        config: Generation configuration
-        status_callback: Optional callback for status updates
-        
+        config:            Generation configuration
+        image_paths:       Optional list of uploaded image file paths
+        status_callback:   Optional callback for status updates
+
     Returns:
         Final workflow state
     """
@@ -63,6 +72,8 @@ async def run_paper_generation(
         template_structure=template_structure,
         config=config or {}
     )
+    # Inject image paths so the vision node can read them
+    initial_state["image_paths"] = image_paths or []
     
     # Create and compile workflow
     workflow = create_paper_generation_graph()

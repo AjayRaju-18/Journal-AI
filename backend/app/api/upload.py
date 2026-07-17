@@ -1,9 +1,13 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import uuid
 import shutil
 from app.core.config import settings
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+MAX_IMAGE_SIZE  = 10 * 1024 * 1024   # 10 MB per image
+MAX_IMAGE_COUNT = 5
 
 
 router = APIRouter()
@@ -12,15 +16,17 @@ router = APIRouter()
 @router.post("/upload")
 async def upload_file(
     data_file: UploadFile = File(...),
-    template_file: Optional[UploadFile] = File(None)
+    template_file: Optional[UploadFile] = File(None),
+    image_files: Optional[List[UploadFile]] = File(None),
 ):
     """
-    Upload data file and optional template file.
-    
+    Upload data file, optional template file, and optional figure images.
+
     Args:
-        data_file: Required data file (CSV, XLSX)
+        data_file:     Required data file (CSV, XLSX)
         template_file: Optional DOCX template file
-        
+        image_files:   Optional list of graph/figure images (PNG, JPG, WebP)
+
     Returns:
         Dictionary with job_id and uploaded file paths
     """
@@ -35,18 +41,32 @@ async def upload_file(
         
         # Validate and save data file
         data_file_path = await _save_data_file(data_file, job_dir)
-        
+
         # Save template file if provided
         template_file_path = None
-        if template_file:
+        if template_file and template_file.filename:
             template_file_path = await _save_template_file(template_file, job_dir)
-        
+
+        # Save image files if provided
+        image_file_paths = []
+        if image_files:
+            # Filter out empty/null entries that FastAPI may inject
+            valid_images = [f for f in image_files if f and f.filename]
+            if len(valid_images) > MAX_IMAGE_COUNT:
+                raise ValueError(
+                    f"Too many images: {len(valid_images)} (max {MAX_IMAGE_COUNT})"
+                )
+            for idx, img in enumerate(valid_images):
+                img_path = await _save_image_file(img, job_dir, idx)
+                image_file_paths.append(str(img_path))
+
         return {
             "job_id": job_id,
             "status": "uploaded",
             "files": {
-                "data_file": str(data_file_path),
-                "template_file": str(template_file_path) if template_file_path else None
+                "data_file":     str(data_file_path),
+                "template_file": str(template_file_path) if template_file_path else None,
+                "image_files":   image_file_paths,
             },
             "message": "Files uploaded successfully"
         }
@@ -150,7 +170,45 @@ async def _save_template_file(file: UploadFile, job_dir: Path) -> Path:
     return file_path
 
 
-@router.get("/upload/{job_id}")
+async def _save_image_file(file: UploadFile, job_dir: Path, index: int) -> Path:
+    """
+    Save and validate one image file.
+
+    Args:
+        file:    Uploaded image file.
+        job_dir: Job directory path.
+        index:   0-based index used to name the saved file.
+
+    Returns:
+        Path to saved file.
+
+    Raises:
+        ValueError: If file type or size is invalid.
+    """
+    ext = Path(file.filename).suffix.lower()
+    if ext not in IMAGE_EXTENSIONS:
+        raise ValueError(
+            f"Invalid image type: {ext}. Allowed: {', '.join(IMAGE_EXTENSIONS)}"
+        )
+
+    safe_name = f"image_{index}{ext}"
+    file_path = job_dir / safe_name
+
+    with open(file_path, "wb") as buf:
+        shutil.copyfileobj(file.file, buf)
+
+    size = file_path.stat().st_size
+    if size > MAX_IMAGE_SIZE:
+        file_path.unlink()
+        raise ValueError(
+            f"Image too large: {size / 1024 / 1024:.1f} MB (max 10 MB)"
+        )
+    if size == 0:
+        file_path.unlink()
+        raise ValueError("Uploaded image is empty")
+
+    return file_path
+
 async def get_upload_status(job_id: str):
     """
     Get upload status for a job.

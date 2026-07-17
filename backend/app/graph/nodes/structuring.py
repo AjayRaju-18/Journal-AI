@@ -24,9 +24,12 @@ def structuring_node(state: PaperGenerationState) -> PaperGenerationState:
         raw_data = state.get("raw_data", {})
         template_structure = state.get("template_structure", {})
         config = state.get("config", {})
-        
+        image_descriptions = state.get("image_descriptions") or []
+
         # Create sections outline
-        sections_outline = _create_sections_outline(raw_data, template_structure, config)
+        sections_outline = _create_sections_outline(
+            raw_data, template_structure, config, image_descriptions
+        )
         
         # Update state
         state["structured_data"] = sections_outline
@@ -46,7 +49,8 @@ def structuring_node(state: PaperGenerationState) -> PaperGenerationState:
 def _create_sections_outline(
     raw_data: Dict[str, Any],
     template_structure: Dict[str, Any],
-    config: Dict[str, Any]
+    config: Dict[str, Any],
+    image_descriptions: list | None = None,
 ) -> Dict[str, Any]:
     """
     Create sections outline using LLM.
@@ -74,7 +78,10 @@ def _create_sections_outline(
     
     # Prepare data summary
     data_summary = _summarize_data(raw_data)
-    
+
+    # Prepare image context (may be empty)
+    image_context = _format_image_descriptions(image_descriptions or [])
+
     # Build prompt
     system_prompt = """You are an expert academic paper structuring assistant. 
 Your task is to analyze data and create a detailed outline for each section of a paper.
@@ -89,19 +96,25 @@ Return your response as valid JSON with the following structure:
     }
   ]
 }"""
-    
+
+    figure_instruction = (
+        "\n\nWhen referencing figures, use their label exactly as given "
+        "(e.g., 'Figure 1', 'Figure 2') so the author can match them to the images."
+        if image_context else ""
+    )
+
     user_prompt = f"""Create a detailed outline for a paper with these sections: {', '.join(section_order)}
 
 Data Summary:
 {data_summary}
-
+{image_context}
 Configuration:
 {json.dumps(config, indent=2)}
 
 For each section, identify:
 1. Key points to cover
-2. Which data should be referenced
-3. Estimated content length
+2. Which data / figures should be referenced
+3. Estimated content length{figure_instruction}
 
 Return ONLY valid JSON, no additional text."""
     
@@ -169,3 +182,26 @@ def _summarize_data(raw_data: Dict[str, Any]) -> str:
         summary_parts.append(json.dumps(raw_data["data"][:sample_size], indent=2))
     
     return "\n".join(summary_parts) if summary_parts else json.dumps(raw_data, indent=2)[:1000]
+
+
+def _format_image_descriptions(descriptions: list) -> str:
+    """
+    Format vision-node output into a prompt block for the LLM.
+
+    Args:
+        descriptions: List of dicts from ``analyse_images``.
+
+    Returns:
+        A formatted string block, or an empty string if no images.
+    """
+    if not descriptions:
+        return ""
+
+    lines = ["\nFigure Descriptions (from uploaded images):"]
+    for item in descriptions:
+        lines.append(
+            f"\n{item['figure_label']} ({item['figure_type']}) — {item['filename']}:"
+        )
+        lines.append(item["description"])
+
+    return "\n".join(lines) + "\n"
