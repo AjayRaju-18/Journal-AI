@@ -151,9 +151,9 @@ export default function ChatUI() {
           <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">PP</span>
+                <span className="text-white font-bold text-sm">RF</span>
               </div>
-              <h1 className="text-lg font-semibold">Paper Pipeline</h1>
+              <h1 className="text-lg font-semibold">ResearchForge</h1>
             </div>
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>

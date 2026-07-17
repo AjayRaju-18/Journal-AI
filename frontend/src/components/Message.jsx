@@ -23,7 +23,7 @@ export default function Message({ message, onRetryFor }) {
       {/* Avatar for assistant */}
       {isAssistant && (
         <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-          <span className="text-white font-semibold text-xs">PP</span>
+          <span className="text-white font-semibold text-xs">RF</span>
         </div>
       )}
 
