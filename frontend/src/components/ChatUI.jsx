@@ -6,6 +6,7 @@ import ThemeToggle from './ThemeToggle';
 export default function ChatUI() {
   const [theme, setTheme] = useState('light');
   const [messages, setMessages] = useState([]);
+  const [attachedFiles, setAttachedFiles] = useState({ data: [], template: null });
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -20,6 +21,38 @@ export default function ChatUI() {
       role: 'user',
       timestamp: new Date()
     }]);
+  };
+
+  const handleFileSelect = ({ type, files }) => {
+    console.log('Files selected:', type, files);
+    
+    if (type === 'data') {
+      setAttachedFiles(prev => ({
+        ...prev,
+        data: [...prev.data, ...files]
+      }));
+      
+      // Add system message about uploaded files
+      const fileNames = files.map(f => f.name).join(', ');
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        content: `📊 Data files uploaded: ${fileNames}`,
+        role: 'system',
+        timestamp: new Date()
+      }]);
+    } else if (type === 'template') {
+      setAttachedFiles(prev => ({
+        ...prev,
+        template: files[0]
+      }));
+      
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        content: `📄 Template uploaded: ${files[0].name}`,
+        role: 'system',
+        timestamp: new Date()
+      }]);
+    }
   };
 
   return (
@@ -46,7 +79,7 @@ export default function ChatUI() {
         </main>
 
         {/* Fixed composer bar at bottom */}
-        <ComposerBar onSend={handleSendMessage} />
+        <ComposerBar onSend={handleSendMessage} onFileSelect={handleFileSelect} />
       </div>
     </div>
   );

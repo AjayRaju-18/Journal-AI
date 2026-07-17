@@ -21,6 +21,19 @@ export default {
         'claude-text-secondary-dark': '#A0A0A0',
         'claude-accent': '#6366F1',
       },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'slide-in-from-bottom': {
+          '0%': { transform: 'translateY(8px)' },
+          '100%': { transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'in': 'fade-in 0.2s ease-out, slide-in-from-bottom 0.2s ease-out',
+      },
     },
   },
   plugins: [],
